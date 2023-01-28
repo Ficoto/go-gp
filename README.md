@@ -10,10 +10,17 @@ go get github.com/Ficoto/go-gp
 ```
 Create a Pool to use
 ```go
-p := New()
-p.Run()
-p.Go(func() error {
-// doing something
-    return nil
-})
+package main
+
+import "github.com/Ficoto/go-gp"
+
+func main() {
+	p := gp.New()
+	p.Run()
+	p.Go(func() error {
+		// doing something
+		return nil
+	})
+	p.Close()
+}
 ```
