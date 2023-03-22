@@ -3,6 +3,7 @@ package gp
 import (
 	"errors"
 	"fmt"
+	"runtime"
 	"testing"
 	"time"
 )
@@ -104,50 +105,6 @@ func TestPool_Size(t *testing.T) {
 	p.Close()
 }
 
-func TestPool_Callback(t *testing.T) {
-	p := New(SetCallback(func(task Task, err error) {
-		t.Logf("task msg:%v,err:%v", task.Message, err)
-	}))
-	p.Run()
-	for i := 0; i != 10; i++ {
-		err := p.GoWithMessage(Task{
-			Message: i,
-			Handler: func(msg interface{}) error {
-				if n, ok := msg.(int); ok && n%2 == 0 {
-					return nil
-				}
-				return errors.New(fmt.Sprintf("error num:%v", msg))
-			},
-		})
-		if err != nil {
-			t.Fatal(err)
-		}
-	}
-	p.Close()
-}
-
-func TestPool_ErrorCallback(t *testing.T) {
-	p := New(SetErrorCallback(func(task Task, err error) {
-		t.Logf("task msg:%v,err:%v", task.Message, err)
-	}))
-	p.Run()
-	for i := 0; i != 10; i++ {
-		err := p.GoWithMessage(Task{
-			Message: i,
-			Handler: func(msg interface{}) error {
-				if n, ok := msg.(int); ok && n%2 == 0 {
-					return nil
-				}
-				return errors.New(fmt.Sprintf("error num:%v", msg))
-			},
-		})
-		if err != nil {
-			t.Fatal(err)
-		}
-	}
-	p.Close()
-}
-
 type logger struct {
 }
 
@@ -176,5 +133,19 @@ func TestPoll_AsyncGo(t *testing.T) {
 	}()
 	t.Log(p.Size())
 	time.Sleep(time.Second * 3)
+	p.Close()
+}
+
+func TestPool_Close(t *testing.T) {
+	runtime.GOMAXPROCS(1)
+	t.Log(runtime.GOMAXPROCS(0))
+	p := New(SetLogger(&logger{}))
+	p.Run()
+	var handler = func() error {
+		time.Sleep(time.Second * 2)
+		t.Log("handler finish")
+		return nil
+	}
+	p.Go(handler)
 	p.Close()
 }

@@ -14,10 +14,8 @@ type Pool struct {
 	taskChan         chan Task
 	idleTimeout      time.Duration
 	maxPoolSize      int
-	callback         func(task Task, err error)
 	signalChan       chan struct{}
 	internalTaskChan chan Task
-	callbackChan     chan callbackMessage
 	ctxCancel        context.CancelFunc
 	isClose          bool
 	logger           LogWriter
@@ -31,23 +29,6 @@ func SetMaxPoolSize(mps int) Option {
 			return
 		}
 		p.maxPoolSize = mps
-	}
-}
-
-func SetCallback(handler func(task Task, err error)) Option {
-	return func(p *Pool) {
-		p.callback = handler
-	}
-}
-
-func SetErrorCallback(handler func(task Task, err error)) Option {
-	return func(p *Pool) {
-		p.callback = func(task Task, err error) {
-			if err == nil {
-				return
-			}
-			handler(task, err)
-		}
 	}
 }
 
@@ -65,10 +46,14 @@ func SetLogger(lw LogWriter) Option {
 
 func New(options ...Option) *Pool {
 	var p = new(Pool)
-	p.maxPoolSize = runtime.NumCPU()
-	p.logger = nopLogger{}
 	for _, option := range options {
 		option(p)
+	}
+	if p.maxPoolSize == 0 {
+		p.maxPoolSize = runtime.NumCPU()
+	}
+	if p.logger == nil {
+		p.logger = nopLogger{}
 	}
 	return p
 }
@@ -120,9 +105,6 @@ func (p *Pool) Run() {
 	p.signalChan = make(chan struct{}, p.maxPoolSize)
 	p.taskChan = make(chan Task)
 	p.internalTaskChan = make(chan Task)
-	if p.callback != nil {
-		p.callbackChan = make(chan callbackMessage)
-	}
 	var ctx = context.Background()
 	ctx, p.ctxCancel = context.WithCancel(ctx)
 	for i := 0; i < p.maxPoolSize; i++ {
@@ -143,23 +125,9 @@ func (p *Pool) Run() {
 				if !ok {
 					return
 				}
-				w := newWork(p.internalTaskChan, setSignalChan(p.signalChan), setCallbackChan(p.callbackChan), setIdleTimeout(p.idleTimeout), setLogger(p.logger))
+				w := newWork(setEndSignalChan(p.signalChan), setIdleTimeout(p.idleTimeout), setLogger(p.logger), setTaskChanel(p.internalTaskChan))
 				w.Run(ctx)
 				p.safeWriteTask(ctx, task)
-			}
-		}
-	}()
-	go func() {
-		if p.callback == nil {
-			return
-		}
-		for {
-			select {
-			case cMsg, ok := <-p.callbackChan:
-				if !ok {
-					return
-				}
-				p.safeHandleCallback(cMsg)
 			}
 		}
 	}()
@@ -176,9 +144,6 @@ func (p *Pool) Close() {
 	}
 	close(p.signalChan)
 	close(p.internalTaskChan)
-	if p.callback != nil {
-		close(p.callbackChan)
-	}
 }
 
 func (p *Pool) Size() int {
@@ -197,13 +162,4 @@ func (p *Pool) safeWriteTask(ctx context.Context, task Task) {
 	default:
 		p.internalTaskChan <- task
 	}
-}
-
-func (p *Pool) safeHandleCallback(cMsg callbackMessage) {
-	defer func() {
-		if v := recover(); v != nil {
-			p.logger.Println(v, "\n", string(debug.Stack()))
-		}
-	}()
-	p.callback(cMsg.task, cMsg.err)
 }
