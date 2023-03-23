@@ -17,9 +17,8 @@ import "github.com/Ficoto/go-gp"
 func main() {
 	p := gp.New()
 	p.Run()
-	p.Go(func() error {
+	p.Go(func() {
 		// doing something
-		return nil
 	})
 	p.Close()
 }

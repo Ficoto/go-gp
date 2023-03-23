@@ -19,9 +19,9 @@ func TestNew(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = p.GoWithMessage(Task{
+	err = p.GoWithTask(Task{
 		Message: "test",
-		Handler: func(msg interface{}) error {
+		Handler: func(msg any) error {
 			time.Sleep(time.Second * 2)
 			t.Log(msg)
 			return nil
@@ -44,9 +44,9 @@ func TestNewWithClose(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = p.GoWithMessage(Task{
+	err = p.GoWithTask(Task{
 		Message: "test",
-		Handler: func(msg interface{}) error {
+		Handler: func(msg any) error {
 			time.Sleep(time.Second * 2)
 			t.Log(msg)
 			return nil
@@ -81,9 +81,9 @@ func TestPool_Size(t *testing.T) {
 	p := New(SetMaxPoolSize(10), SetIdleTimeout(time.Second*2))
 	p.Run()
 	for i := 0; i != 10; i++ {
-		err := p.GoWithMessage(Task{
+		err := p.GoWithTask(Task{
 			Message: i,
-			Handler: func(msg interface{}) error {
+			Handler: func(msg any) error {
 				s, ok := msg.(int)
 				if !ok {
 					return errors.New("msg type not right")
@@ -108,7 +108,7 @@ func TestPool_Size(t *testing.T) {
 type logger struct {
 }
 
-func (l *logger) Println(v ...interface{}) {
+func (l *logger) Println(v ...any) {
 	fmt.Println(v...)
 }
 

@@ -15,13 +15,13 @@ func TestWork_Run(t *testing.T) {
 		go func(i int) {
 			w.InputTask() <- Task{
 				Message: fmt.Sprintf("test %d", i),
-				Handler: func(msg interface{}) error {
+				Handler: func(msg any) error {
 					return errors.New(fmt.Sprintf("error %d", i))
 				},
-				Callback: func(msg interface{}, err error) {
+				Callback: func(msg any, err error) {
 					t.Log("task finish,err:", err)
 				},
-				IsRetry: func(msg interface{}, failTimes int) bool {
+				IsRetry: func(msg any, failTimes int) bool {
 					if failTimes <= 3 {
 						return true
 					}
@@ -39,10 +39,10 @@ func TestSafeHandler(t *testing.T) {
 	w.Run(context.Background())
 	w.InputTask() <- Task{
 		Message: "test task",
-		Handler: func(msg interface{}) error {
+		Handler: func(msg any) error {
 			panic(msg)
 		},
-		Callback: func(msg interface{}, err error) {
+		Callback: func(msg any, err error) {
 			t.Log(msg, err)
 		},
 	}
@@ -54,11 +54,11 @@ func TestSafeCallback(t *testing.T) {
 	w.Run(context.Background())
 	w.InputTask() <- Task{
 		Message: "test task",
-		Handler: func(msg interface{}) error {
+		Handler: func(msg any) error {
 			t.Log("this is handler")
 			return nil
 		},
-		Callback: func(msg interface{}, err error) {
+		Callback: func(msg any, err error) {
 			t.Log("this is callback")
 			panic(err)
 		},
@@ -73,7 +73,7 @@ func TestSetIdleTimeout(t *testing.T) {
 	var since1 = time.Now()
 	w1.InputTask() <- Task{
 		Message: since1,
-		Handler: func(msg interface{}) error {
+		Handler: func(msg any) error {
 			ti, _ := msg.(time.Time)
 			t.Log(time.Now().Sub(ti))
 			return nil
@@ -88,7 +88,7 @@ func TestSetIdleTimeout(t *testing.T) {
 	var since2 = time.Now()
 	w2.InputTask() <- Task{
 		Message: since2,
-		Handler: func(msg interface{}) error {
+		Handler: func(msg any) error {
 			ti, _ := msg.(time.Time)
 			time.Sleep(time.Second * 2)
 			t.Log(time.Now().Sub(ti))
@@ -102,7 +102,7 @@ func TestSetIdleTimeout(t *testing.T) {
 type testLogger struct {
 }
 
-func (tl *testLogger) Println(v ...interface{}) {
+func (tl *testLogger) Println(v ...any) {
 	fmt.Println(v...)
 }
 
@@ -112,7 +112,7 @@ func TestSetLogger(t *testing.T) {
 	w.Run(context.Background())
 	w.InputTask() <- Task{
 		Message: "test msg",
-		Handler: func(msg interface{}) error {
+		Handler: func(msg any) error {
 			panic(msg)
 		},
 	}
@@ -126,7 +126,7 @@ func TestSetTaskChanel(t *testing.T) {
 	w.Run(context.Background())
 	tc <- Task{
 		Message: "test msg",
-		Handler: func(msg interface{}) error {
+		Handler: func(msg any) error {
 			t.Log(msg)
 			return nil
 		},
@@ -141,7 +141,7 @@ func TestSetTaskChanelClose(t *testing.T) {
 	w.Run(context.Background())
 	tc <- Task{
 		Message: "test msg",
-		Handler: func(msg interface{}) error {
+		Handler: func(msg any) error {
 			t.Log(msg)
 			return nil
 		},
@@ -157,7 +157,7 @@ func TestWork_RunWithCTXCancel(t *testing.T) {
 	w1.Run(ctx1)
 	w1.InputTask() <- Task{
 		Message: "test msg",
-		Handler: func(msg interface{}) error {
+		Handler: func(msg any) error {
 			t.Log(msg)
 			return nil
 		},
@@ -171,7 +171,7 @@ func TestWork_RunWithCTXCancel(t *testing.T) {
 	w2.Run(ctx2)
 	w2.InputTask() <- Task{
 		Message: "test msg2",
-		Handler: func(msg interface{}) error {
+		Handler: func(msg any) error {
 			time.Sleep(time.Second * 2)
 			t.Log(msg)
 			return nil

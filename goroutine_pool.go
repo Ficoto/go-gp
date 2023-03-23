@@ -58,16 +58,16 @@ func New(options ...Option) *Pool {
 	return p
 }
 
-func (p *Pool) Go(f func() error) error {
-	return p.GoWithMessage(Task{
-		Message: nil,
-		Handler: func(msg interface{}) error {
-			return f()
+func (p *Pool) Go(f func()) error {
+	return p.GoWithTask(Task{
+		Handler: func(msg any) error {
+			f()
+			return nil
 		},
 	})
 }
 
-func (p *Pool) GoWithMessage(task Task) error {
+func (p *Pool) GoWithTask(task Task) error {
 	if p.isClose {
 		return PoolCloseError
 	}
@@ -80,12 +80,12 @@ func (p *Pool) GoWithMessage(task Task) error {
 	return nil
 }
 
-func (p *Pool) AsyncGo(f func() error) {
+func (p *Pool) AsyncGo(f func()) {
 	go func() {
-		if err := p.GoWithMessage(Task{
-			Message: nil,
-			Handler: func(msg interface{}) error {
-				return f()
+		if err := p.GoWithTask(Task{
+			Handler: func(msg any) error {
+				f()
+				return nil
 			},
 		}); err != nil {
 			p.logger.Println("GoWithMessage fail\n", "err: ", err)
@@ -93,9 +93,9 @@ func (p *Pool) AsyncGo(f func() error) {
 	}()
 }
 
-func (p *Pool) AsyncGoWithMessage(task Task) {
+func (p *Pool) AsyncGoWithTask(task Task) {
 	go func() {
-		if err := p.GoWithMessage(task); err != nil {
+		if err := p.GoWithTask(task); err != nil {
 			p.logger.Println("GoWithMessage fail\n", "err: ", err)
 		}
 	}()

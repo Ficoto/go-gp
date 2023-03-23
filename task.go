@@ -1,10 +1,10 @@
 package gp
 
 type Task struct {
-	Message  interface{}
-	Handler  func(msg interface{}) error
-	Callback func(msg interface{}, err error)
-	IsRetry  func(msg interface{}, failTimes int) bool
+	Message  any
+	Handler  func(msg any) error
+	Callback func(msg any, err error)
+	IsRetry  func(msg any, failTimes int) bool
 }
 
 func (t *Task) reset() {
