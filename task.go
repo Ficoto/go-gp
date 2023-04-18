@@ -7,9 +7,6 @@ type Task struct {
 	IsRetry  func(msg any, failTimes int) bool
 }
 
-func (t *Task) reset() {
-	t.Message = nil
-	t.Handler = nil
-	t.Callback = nil
-	t.IsRetry = nil
-}
+func NopCallback(msg any, err error) {}
+
+func NopIsRetry(msg any, failTimes int) bool { return false }
