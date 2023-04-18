@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"runtime"
 	"runtime/debug"
+	"sync"
 )
 
 var (
@@ -16,7 +17,8 @@ type Pool struct {
 	maxPoolSize   int
 	signalChannel chan struct{}
 	logger        LogWriter
-	isClose       bool
+	closeFlag     bool
+	flagLock      sync.RWMutex
 }
 
 type Option func(p *Pool)
@@ -51,27 +53,27 @@ func New(options ...Option) *Pool {
 	return p
 }
 
-func (p *Pool) safeHandler(t Task) {
+func (p *Pool) safeHandler(t Task, err *error) {
+	defer func() {
+		if v := recover(); v != nil {
+			*err = fmt.Errorf("%w\ntask panic: %v\n%s\n", HandlerPanicError, v, debug.Stack())
+		}
+	}()
+	*err = t.Handler(t.Message)
+}
+
+func (p *Pool) safeTask(t Task) {
 	go func() {
 		defer recoverPrintln(p.logger)
 		defer func() {
 			<-p.signalChannel
 		}()
 		var (
-			errChan = make(chan error, 1)
-			sh      = func() {
-				defer func() {
-					if v := recover(); v != nil {
-						errChan <- fmt.Errorf("%w\ntask panic: %v\n%s\n", HandlerPanicError, v, debug.Stack())
-					}
-				}()
-				errChan <- t.Handler(t.Message)
-			}
 			failTimes int
+			err       error
 		)
 		for {
-			sh()
-			err := <-errChan
+			p.safeHandler(t, &err)
 			if t.IsRetry != nil && err != nil && t.IsRetry(t.Message, failTimes) {
 				failTimes++
 				continue
@@ -86,11 +88,13 @@ func (p *Pool) safeHandler(t Task) {
 }
 
 func (p *Pool) GoWithTask(task Task) error {
-	if p.isClose {
+	p.flagLock.RLock()
+	defer p.flagLock.RUnlock()
+	if p.closeFlag {
 		return PoolCloseError
 	}
 	p.signalChannel <- struct{}{}
-	p.safeHandler(task)
+	p.safeTask(task)
 	return nil
 }
 
@@ -106,7 +110,9 @@ func (p *Pool) Go(f func()) error {
 }
 
 func (p *Pool) Close() {
-	p.isClose = true
+	p.flagLock.Lock()
+	p.closeFlag = true
+	p.flagLock.Unlock()
 	for len(p.signalChannel) != 0 {
 		continue
 	}
