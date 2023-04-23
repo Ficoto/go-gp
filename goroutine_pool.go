@@ -114,7 +114,7 @@ func (p *Pool) Close() {
 	p.closeFlag = true
 	p.flagLock.Unlock()
 	for len(p.signalChannel) != 0 {
-		continue
+		runtime.Gosched()
 	}
 	close(p.signalChannel)
 }
